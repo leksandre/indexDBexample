@@ -1,12 +1,74 @@
 <script>
+
+
+
+
+
+
+
+function setPage(page) {
+  setCookie("x", page);
+  location.reload();
+}
+function getCookie(name) {
+  var value = "; " + document.cookie;
+  var parts = value.split("; " + name + "=");
+  if (parts.length == 2) return parts.pop().split(";").shift();
+}
+function setCookie(name, value) {
+  document.cookie = name + "=" + value + "; path=/";
+}
+
+function pagination(){
+
+var x = parseInt(getCookie("x"));
+if (isNaN(x)) {
+  x = 1;
+}
+
+var pageCount = 100;
+var displayCount = pageCountRows;
+
+var startPage = Math.max(1, x - Math.floor(displayCount / 2));
+var endPage = Math.min(pageCount, startPage + displayCount - 1);
+
+var html = "";
+
+if (x > 1) {
+  html += '<a href="#" onclick="setPage(' + (x - 1) + '); return false;">&laquo;</a>';
+}
+for (var i = startPage; i <= endPage; i++) {
+  if (i == x) {
+    html += '<span class="active">' + i + '</span>';
+  } else {
+    html += '<a href="#" onclick="setPage(' + i + '); return false;">' + i + '</a>';
+  }
+}
+
+// Добавляем кнопку "Вперед", если текущая страница не является последней
+if (x < pageCount) {
+  html += '<a href="#" onclick="setPage(' + (x + 1) + '); return false;">&raquo;</a>';
+}
+
+var pagination = document.createElement('div');
+pagination.innerHTML = html;
+document.body.appendChild(pagination);
+
+}
+
+
+
+
+
 // список задач генерится всегда и сохраняется в index DB талица "tasks"
 // если таблица уже заполеннена перегенерации не будет
 
 // навигация сделана в 2х варианта 1 как в задаче /api/v1/task/ и /api/v1/task/:id второй через get (чтоб было возможно прверить без запуска вебсервиса и без роутинга запросов на сервере)
 // все правки навигациии можно отыскать по словам "get параметр"
-
-const tableName = 'tasks'
-const dbName = 'myDatabase';
+const mainScript = 'index.html' // имя текущего скрипта
+const pageCountRows = 10 // количество строк на странице
+const tableName = 'tasks' // таблиц
+const dbName = 'myDatabase'; //база
 const dbVersion = 1; 
 const request = indexedDB.open(dbName, dbVersion);
 var _table_ = document.createElement('table'),
@@ -149,8 +211,21 @@ function showAllRecords(json=false){
                 }
             table.appendChild(tr);   
 
+
+            //смотрим какая у нас там текуща страница в куках
+            var x = parseInt(getCookie("x"));
+            if (isNaN(x)) {
+            x = 0;
+            }
+            
+            let page_start=x*pageCountRows;
+            let page_end=((x+1)*pageCountRows)-1;
+
             var columns = ['author','date','description','id','status','title'];
             for (var i = 0, maxi = arr.length; i < maxi; ++i) {
+                
+                if(i<page_start || i>page_end) continue
+
                 var tr = _tr_.cloneNode(false);
                 for (var j = 0, maxj = columns.length; j < maxj; ++j) {
                 var td = _td_.cloneNode(false);
@@ -160,7 +235,7 @@ function showAllRecords(json=false){
                 tr.appendChild(td);
                 }
 
-                let url = '/api/v1/task/'+ (i+1)
+                let url = './'+mainScript+'/api/v1/task'+ (i+1)
                     var td = _td_.cloneNode(false);
                         var a = document.createElement('a');
                         var linkText = document.createTextNode("подробнее "+arr[i][columns[5]]);
@@ -196,7 +271,7 @@ function showAllRecords(json=false){
             }
             table.style.cssText = 'border-width: 1px;border-style: solid;padding: 10px;margin: 40px; margin-left: 10%; margin-right: 10%; width:80%;';
             document.body.appendChild(table)
-
+            pagination();
         };
 
         getAllRequest.onerror = (event) => {
@@ -350,8 +425,8 @@ document.addEventListener("DOMContentLoaded", function() {
 
 ////////////////////////////// здесь блок содержащий навигацию
 document.body.innerHTML = document.body.innerHTML + 
-"<a href='./index.html'>Главная</a><br>" +
-"<a href='./index.html/api/v1/task'>Список задач в виде json</a><br>" +
+"<a href='./"+mainScript+"'>Главная</a><br>" +
+"<a href='./"+mainScript+"/api/v1/task'>Список задач в виде json (сначала надо прописать правила маршрутизации запросов на хосте чтоб они вели к этому "+mainScript+")</a><br>" +
 "<a href='?page=task_list'>Список задач в виде json (навигаци через get параметр)</a>"+
 "<br><br>"+
 '<div id="output""><div>'
@@ -380,7 +455,32 @@ if (id>0)
 
 });
 
+
 </script>
+
+<!-- стили для панельки пагинации -->
+<style>
+#pagination {
+  text-align: center;
+}
+#pagination a,
+#pagination span {
+  display: inline-block;
+  margin: 0 5px;
+  padding: 5px 10px;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  color: #333;
+  text-decoration: none;
+}
+#pagination a:hover {
+  background-color: #f5f5f5;
+}
+#pagination .active {
+  background-color: #333;
+  color: #fff;
+}
+</style>
 
 <body>
 
