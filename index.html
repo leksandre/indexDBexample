@@ -183,10 +183,10 @@ function showAllRecords(json=false){
                 url = '?pageId='+ (i+1)
                     var td = _td_.cloneNode(false);
                         var a = document.createElement('span');
-                        var linkText = document.createTextNode(arr[i][columns[5]] + 'показать модально');
-                        a.appendChild(linkText);
-                        a.title = "в задачу"+arr[i][columns[2]]
-                        a.onclick = showRecordLikeTable(id);
+                        a.innerHTML=(arr[i][columns[5]] + ' показать модально ' + arr[i][columns[3]]);
+                        a.setAttribute('val1', arr[i][columns[3]])
+                        a.onclick = function(e) { showRecordLikeTable(e.target.getAttribute("val1")); };
+                        a.style.cssText = "text-decoration:underline; cursor:pointer"
                     td.appendChild(a);
                 tr.appendChild(td);
 
@@ -194,7 +194,7 @@ function showAllRecords(json=false){
 
                 table.appendChild(tr);
             }
-            table.style.cssText = 'border-width: 1px;border-style: solid;padding: 10px;margin: 40px;';
+            table.style.cssText = 'border-width: 1px;border-style: solid;padding: 10px;margin: 40px; margin-left: 10%; margin-right: 10%; width:80%;';
             document.body.appendChild(table)
 
         };
@@ -241,9 +241,12 @@ function showRecordLikeJson(id){
 
 //выводим в json, типа мы вебсервис
 function showRecordLikeTable(id){
+
+    var request = indexedDB.open(dbName, dbVersion);
     request.onsuccess = function(event) {
+
         const db = event.target.result;
-        var table = _table_.cloneNode(false);
+        var table = document.createElement('div');
         const transaction = db.transaction(tableName, "readonly");
         const objectStore = transaction.objectStore(tableName);
         const myIndex = objectStore.index("title");
@@ -257,16 +260,17 @@ function showRecordLikeTable(id){
 
         getRequest.onsuccess = function(event) {
             const record = event.target.result;
-            //console.log(id,page,record)
+            console.log(id,page,record)
             if (record) {
          
-                
-            var columns = ['Автор задачи','Дата выполнения','Описание задачи','Идентификатор задачи','Статус задачи','Заголовок задачи', 'Перейти в задачу', 'Прейти в задачу (навигаци через get параметр)'];
-            var tr = _tr_.cloneNode(false);
+            var columnsdata = ['author','date','description','id','status','title'];
+            var columns = ['Автор задачи','Дата выполнения','Описание задачи','Идентификатор задачи','Статус задачи','Заголовок задачи'];
+            var tr = document.createElement('div');
             for (var j = 0, maxj = columns.length; j < maxj; ++j) {
-                var td = _td_.cloneNode(false);
-                var cellValue = columns[j];
-                td.appendChild(document.createTextNode([columns[j]] || ''));
+                var td = document.createElement('div');
+   
+                var cellValue = record[columnsdata[j]];
+                td.appendChild(document.createTextNode([columns[j]] + " - " + cellValue ));
                 tr.appendChild(td);
                 }
             table.appendChild(tr);   
@@ -275,6 +279,8 @@ function showRecordLikeTable(id){
                 //console.log("Запись не найдена с id:", id);
             }
         };
+        table.onclick = function(e) {table.remove()};
+        table.style.cssText = 'cursor:pointer; border-width: 1px;border-style: solid;padding: 10px;margin: 40px; z-index:999; position:absolute; top:110px;   margin-left: 40%; margin-right: 40%;  width:20%; background-color: aquamarine;';
         document.body.appendChild(table)
     };
 }
