@@ -1,0 +1,381 @@
+<script>
+// список задач генерится всегда и сохраняется в index DB талица "tasks"
+// если таблица уже заполеннена перегенерации не будет
+
+// навигация сделана в 2х варианта 1 как в задаче /api/v1/task/ и /api/v1/task/:id второй через get (чтоб было возможно прверить без запуска вебсервиса и без роутинга запросов на сервере)
+// все правки навигациии можно отыскать по словам "get параметр"
+
+const tableName = 'tasks'
+const dbName = 'myDatabase';
+const dbVersion = 1; 
+const request = indexedDB.open(dbName, dbVersion);
+var _table_ = document.createElement('table'),
+            _tr_ = document.createElement('tr'),
+            _th_ = document.createElement('th'),
+            _td_ = document.createElement('td');  
+
+request.onupgradeneeded = function(event) {
+    const db = event.target.result;
+    if (!db.objectStoreNames.contains(tableName)) {
+        const objectStore = db.createObjectStore(tableName, { keyPath: 'id' });
+
+        objectStore.createIndex('title', 'title', { unique: false });
+        objectStore.createIndex('date', 'date', { unique: false });
+        objectStore.createIndex('author', 'author', { unique: false });
+        objectStore.createIndex('status', 'status', { unique: false });
+        objectStore.createIndex('description', 'description', { unique: false });
+        
+        //console.log('Объектное хранилище создано:', objectStore);
+    } else {
+       //console.log('Объектное хранилище уже существует.');
+    }
+};
+
+//считаем кол-во записей и заполняем таблицу, если надо
+function countRecordsAndExecutreFill(db,eventMain) {
+    const transaction = db.transaction(tableName, 'readonly');
+    const objectStore = transaction.objectStore(tableName);
+    let count = 0;
+
+    const request = objectStore.openCursor();
+    request.onsuccess = (event) => {
+        const cursor = event.target.result;
+        if (cursor) {
+            count++;
+            cursor.continue(); 
+        } else {
+            console.log('кол-во записей в таблице:', count);
+            if (count<1000)//если база недозаполнена  - заполняем
+            for (let num_bl = 1; num_bl < 1001; num_bl++) {
+                addTask(eventMain, task, num_bl);
+            }  
+        } 
+    };
+
+    request.onerror = (event) => {
+        console.error("Ошибка при открытии курсора:", event.target.error);
+    };
+
+}
+
+request.onerror = function(event) {
+    console.error('Ошибка при открытии базы данных:', event.target.error);
+};
+
+//при старте 
+request.onsuccess = function(event) {
+    const db = event.target.result;
+    //console.log('База данных успешно открыта:', db);
+    countRecordsAndExecutreFill(db,event);
+
+};
+
+// шаблон задачи
+const task = {
+    id: 1,              // Идентификатор задачи
+    title: 'Задача',    // Заголовок задачи
+    date: 0, // Дата выполнения
+    author: 'Автор',         // Автор задачи
+    status: 'Статус', // Статус задачи
+    description: 'Описание'  // Описание задачи
+};
+
+// добавляем задачку 87
+// Задача 87
+// Текущая дата + 87 часов
+// Автор 87
+// Статус 87
+// Описание 87
+// как в примере
+function addTask(event, task, num) {
+    const db = event.target.result;
+    const transaction = db.transaction([tableName], 'readwrite');
+    const objectStore = transaction.objectStore(tableName);
+    let today = new Date();
+    today.setHours(today.getHours() + num);
+    let task1 = {}
+    task1.id = num
+    task1.title = task.title + ' '+num
+    task1.date = today
+    task1.author = task.author+' '+num
+    task1.status = task.status+' '+num
+    task1.description = task.description+' '+num
+ 
+    const request = objectStore.add(task1);
+    request.onsuccess = function() {
+        console.log('Задача добавлена:', task1);
+    };
+    request.onerror = function(event) {
+        console.error('Ошибка при добавлении задачи:', event.target.error);
+    };
+}
+
+// выводим список всех записаей в таблице
+function showAllRecords(json=false){
+
+    request.onsuccess = (event) => {
+        const db = event.target.result;
+  
+        var table = _table_.cloneNode(false);
+        
+
+        const transaction = db.transaction(tableName, 'readonly');
+        const objectStore = transaction.objectStore(tableName);
+
+
+        const getAllRequest = objectStore.getAll();
+
+        getAllRequest.onsuccess = (event) => {
+            const allRecords = event.target.result;
+            const outputDiv = document.getElementById('output');
+
+            //пример вывод json
+
+            if(json){
+                outputDiv.innerHTML = JSON.stringify(allRecords, null, 2);
+                return true
+            }
+                
+            //печатаем всю таблицу
+
+            var arr = allRecords
+            var columns = ['Автор задачи','Дата выполнения','Описание задачи','Идентификатор задачи','Статус задачи','Заголовок задачи', 'Перейти в задачу', 'Прейти в задачу (навигаци через get параметр)'];
+            var tr = _tr_.cloneNode(false);
+            for (var j = 0, maxj = columns.length; j < maxj; ++j) {
+                var td = _td_.cloneNode(false);
+                var cellValue = columns[j];
+                td.appendChild(document.createTextNode([columns[j]] || ''));
+                tr.appendChild(td);
+                }
+            table.appendChild(tr);   
+
+            var columns = ['author','date','description','id','status','title'];
+            for (var i = 0, maxi = arr.length; i < maxi; ++i) {
+                var tr = _tr_.cloneNode(false);
+                for (var j = 0, maxj = columns.length; j < maxj; ++j) {
+                var td = _td_.cloneNode(false);
+                //console.log(arr[i])
+                var cellValue = arr[i][columns[j]];
+                td.appendChild(document.createTextNode(arr[i][columns[j]] || ''));
+                tr.appendChild(td);
+                }
+
+                let url = '/api/v1/task/'+ (i+1)
+                    var td = _td_.cloneNode(false);
+                        var a = document.createElement('a');
+                        var linkText = document.createTextNode("подробнее "+arr[i][columns[5]]);
+                        a.appendChild(linkText);
+                        a.title = "в задачу"+arr[i][columns[2]]
+                        a.href = url;
+                    td.appendChild(a);
+                tr.appendChild(td);
+                //добавми переход через get параметр
+                url = '?pageId='+ (i+1)
+                    var td = _td_.cloneNode(false);
+                        var a = document.createElement('a');
+                        var linkText = document.createTextNode("подробнее "+arr[i][columns[5]]);
+                        a.appendChild(linkText);
+                        a.title = "в задачу"+arr[i][columns[2]]
+                        a.href = url;
+                    td.appendChild(a);
+                tr.appendChild(td);
+                //добавми переход через get параметр
+                url = '?pageId='+ (i+1)
+                    var td = _td_.cloneNode(false);
+                        var a = document.createElement('span');
+                        var linkText = document.createTextNode(arr[i][columns[5]] + 'показать модально');
+                        a.appendChild(linkText);
+                        a.title = "в задачу"+arr[i][columns[2]]
+                        a.onclick = showRecordLikeTable(id);
+                    td.appendChild(a);
+                tr.appendChild(td);
+
+
+
+                table.appendChild(tr);
+            }
+            table.style.cssText = 'border-width: 1px;border-style: solid;padding: 10px;margin: 40px;';
+            document.body.appendChild(table)
+
+        };
+
+        getAllRequest.onerror = (event) => {
+            console.error('Ошибка при получении данных:', event.target.error);
+        };
+    };
+
+}
+
+//выводим в json, типа мы вебсервис
+function showRecordLikeJson(id){
+    request.onsuccess = function(event) {
+        const db = event.target.result;
+
+        const transaction = db.transaction(tableName, "readonly");
+        const objectStore = transaction.objectStore(tableName);
+        const myIndex = objectStore.index("title");
+        const getRequest = myIndex.get("Задача "+id);
+
+        //const getRequest = objectStore.get(id);
+
+        getRequest.onerror = function(event) {
+            console.error("Ошибка при получении записи:", event.target.error);
+        };
+
+        getRequest.onsuccess = function(event) {
+            const record = event.target.result;
+            // console.log(id,page,record)
+            if (record) {
+                // тут мы выводим в div
+                // но можно и просто распечатать в виде json
+                const outputDiv = document.getElementById('output');
+                outputDiv.innerHTML = JSON.stringify(record, null, 2);
+            } else {
+                //console.log("Запись не найдена с id:", id);
+            }
+        };
+    };
+}
+
+
+
+//выводим в json, типа мы вебсервис
+function showRecordLikeTable(id){
+    request.onsuccess = function(event) {
+        const db = event.target.result;
+        var table = _table_.cloneNode(false);
+        const transaction = db.transaction(tableName, "readonly");
+        const objectStore = transaction.objectStore(tableName);
+        const myIndex = objectStore.index("title");
+        const getRequest = myIndex.get("Задача "+id);
+
+        //const getRequest = objectStore.get(id);
+
+        getRequest.onerror = function(event) {
+            console.error("Ошибка при получении записи:", event.target.error);
+        };
+
+        getRequest.onsuccess = function(event) {
+            const record = event.target.result;
+            //console.log(id,page,record)
+            if (record) {
+         
+                
+            var columns = ['Автор задачи','Дата выполнения','Описание задачи','Идентификатор задачи','Статус задачи','Заголовок задачи', 'Перейти в задачу', 'Прейти в задачу (навигаци через get параметр)'];
+            var tr = _tr_.cloneNode(false);
+            for (var j = 0, maxj = columns.length; j < maxj; ++j) {
+                var td = _td_.cloneNode(false);
+                var cellValue = columns[j];
+                td.appendChild(document.createTextNode([columns[j]] || ''));
+                tr.appendChild(td);
+                }
+            table.appendChild(tr);   
+
+            } else {
+                //console.log("Запись не найдена с id:", id);
+            }
+        };
+        document.body.appendChild(table)
+    };
+}
+
+
+
+
+
+
+// обрабатываем навигацию
+  const currentUrl = window.location.href;
+  const url = new URL(currentUrl);
+  const params = url.searchParams;
+
+
+    const match = currentUrl.split('/');
+    let page = 'home';
+    let id = 0;
+    if (match && match[1]&& match[2]) {
+        console.log(match); 
+        
+        if (match[0]=='api' && match[1]=='v1' && match[2]=='task') {
+            page === 'tasks'
+            if(match[3]){
+                id = parseInt(match[3], 10)
+            }
+        } 
+
+    } else {
+        page === 'home'
+      
+        //на всякий случаем обработае get параметры
+        if (peram_page = params.get('page'))
+            if(peram_page == 'task_list')
+                page = 'tasks'
+        if (peram_page = params.get('pageId'))
+            if(peram_page > 0)
+                id = peram_page
+    }
+
+
+
+
+
+
+
+
+// отрисовываем нашу страницу после загрузки
+document.addEventListener("DOMContentLoaded", function() {
+
+
+    // рисуем заголовк
+    //alert(page)
+    if (page === 'home') {
+        document.body.innerHTML = '<h1>Главная страница</h1></p>';
+    } else if (page === 'tasks') {
+            document.body.innerHTML = '<h1>Список задач</h1><p></p>';
+    } 
+
+    if (id>0) {
+            document.body.innerHTML = '<h1>Задача #'+id+'</h1><p></p>';
+        }
+
+
+
+
+
+////////////////////////////// здесь блок содержащий навигацию
+document.body.innerHTML = document.body.innerHTML + 
+"<a href='./index.html'>Главная</a><br>" +
+"<a href='./index.html/api/v1/task'>Список задач в виде json</a><br>" +
+"<a href='?page=task_list'>Список задач в виде json (навигаци через get параметр)</a>"+
+"<br><br>"+
+'<div id="output""><div>'
+
+
+
+// console.log(id,page)
+if (id>0) 
+    {
+        showRecordLikeJson(id)
+    }
+    else
+    {
+        if (page === 'tasks')
+            {
+                showAllRecords(true);
+            }
+
+        if (page === 'home')
+            {
+                showAllRecords();
+            }
+    }
+
+
+
+});
+
+</script>
+
+<body>
+
+</body>
